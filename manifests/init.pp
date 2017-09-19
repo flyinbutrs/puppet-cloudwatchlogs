@@ -107,6 +107,7 @@ class cloudwatchlogs (
           owner  => 'root',
           group  => 'root',
           mode   => '0755',
+          before => Exec['cloudwatchlogs-install']
         }
       }
       else {
@@ -115,6 +116,7 @@ class cloudwatchlogs (
           command => 'wget -O /usr/local/src/awslogs-agent-setup.py https://s3.amazonaws.com/aws-cloudwatch/downloads/latest/awslogs-agent-setup.py',
           unless  => '[ -e /usr/local/src/awslogs-agent-setup.py ]',
           require => Package['wget'],
+          before  => Exec['cloudwatchlogs-install']
         }
       }
 
@@ -170,8 +172,7 @@ class cloudwatchlogs (
           onlyif  => '[ -e /usr/local/src/awslogs-agent-setup.py ]',
           unless  => '[ -d /var/awslogs/bin ]',
           require => [
-            Concat['/etc/awslogs/awslogs.conf'],
-            Exec['cloudwatchlogs-wget']
+            Concat['/etc/awslogs/awslogs.conf']
           ],
           before  => [
             Service['awslogs'],
