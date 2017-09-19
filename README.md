@@ -14,7 +14,7 @@
 6. [Development - Guide for contributing to the module](#development)
 
 ## Overview
-
+ 
 This module installs, configures and manages the service for the AWS Cloudwatch Logs Agent on Amazon Linux, Ubuntu, Red Hat & CentOS EC2 instances.
 
 ## Module Description
