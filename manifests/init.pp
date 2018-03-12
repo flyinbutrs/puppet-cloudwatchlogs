@@ -60,6 +60,15 @@ class cloudwatchlogs (
         ensure => 'present',
       }
 
+      file_line { 'ensure-correct-region':
+        ensure  => present,
+        path    => '/var/awslogs/etc/aws.conf',
+        match   => '^region = ',
+        line    => "region = ${region}",
+        require => Package['awslogs'],
+        notify  => Service['awslogs'],
+      }
+
       concat { '/etc/awslogs/awslogs.conf':
         ensure         => 'present',
         owner          => 'root',

@@ -1,3 +1,6 @@
+#### Bugfixes
+- Force region to be correct in /var/awslogs/etc/aws.conf. If an image is moved to a new region, this setting can be incorrect.
+
 ## 2016-12-04 - Release 3.2.1
 ### Summary
 Small bugfix release.
