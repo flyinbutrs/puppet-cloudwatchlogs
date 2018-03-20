@@ -56,6 +56,16 @@ class cloudwatchlogs (
 
   case $::operatingsystem {
     'Amazon': {
+
+      case $::operatingsystemmajrelease {
+        '2': {
+          $aws_logs_service_name = 'awslogsd'
+        }
+        default: {
+          $aws_logs_service_name = 'awslogs'
+        }
+      }
+
       package { 'awslogs':
         ensure => 'present',
       }
@@ -66,7 +76,7 @@ class cloudwatchlogs (
         match   => '^region = ',
         line    => "region = ${region}",
         require => Package['awslogs'],
-        notify  => Service['awslogs'],
+        notify  => Service[$aws_logs_service_name],
       }
 
       concat { '/etc/awslogs/awslogs.conf':
@@ -89,21 +99,12 @@ class cloudwatchlogs (
           path    => '/etc/awslogs/awscli.conf',
           line    => "region = ${region}",
           match   => '^region\s*=',
-          notify  => Service['awslogs'],
+          notify  => Service[$aws_logs_service_name],
           require => Package['awslogs'],
         }
       }
 
-      case $::operatingsystemmajrelease {
-        '2': {
-          $aws_logs_service_name = 'awslogsd'
-        }
-        default: {
-          $aws_logs_service_name = 'awslogs'
-        }
-      }
-
-      service { "${aws_logs_service_name}":
+      service { $aws_logs_service_name:
         ensure     => 'running',
         enable     => true,
         hasrestart => true,
@@ -112,6 +113,9 @@ class cloudwatchlogs (
       }
     }
     /^(Ubuntu|CentOS|RedHat)$/: {
+
+      $aws_logs_service_name = 'awslogs'
+
       if ! defined(Package['wget']) {
         package { 'wget':
           ensure => 'present',
@@ -181,13 +185,13 @@ class cloudwatchlogs (
             Exec['cloudwatchlogs-wget']
           ],
           before  => [
-            Service['awslogs'],
+            Service[$aws_logs_service_name],
             File['/var/awslogs/etc/awslogs.conf'],
           ]
         }
       }
 
-      service { 'awslogs':
+      service { $aws_logs_service_name:
         ensure     => 'running',
         enable     => true,
         hasrestart => true,
@@ -206,7 +210,7 @@ class cloudwatchlogs (
         group   => 'root',
         mode    => '0644',
         content => template('cloudwatchlogs/awslogs_logging_config_file.erb'),
-        notify  => Service['awslogs'],
+        notify  => Service[$aws_logs_service_name],
         require => $installed_marker,
     }
   }
