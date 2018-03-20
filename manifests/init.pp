@@ -72,7 +72,7 @@ class cloudwatchlogs (
 
       file_line { 'ensure-correct-region':
         ensure  => present,
-        path    => '/var/awslogs/etc/aws.conf',
+        path    => '/etc/awslogs/awscli.conf',
         match   => '^region = ',
         line    => "region = ${region}",
         require => Package['awslogs'],
@@ -170,6 +170,14 @@ class cloudwatchlogs (
         ensure => 'link',
         force  => true,
         target => '/etc/awslogs/config',
+      }
+
+      file_line { 'ensure-correct-region':
+        ensure => present,
+        path   => '/var/awslogs/etc/aws.conf',
+        match  => '^region = ',
+        line   => "region = ${region}",
+        notify => Service[$aws_logs_service_name],
       }
 
       if ($region == undef) {
