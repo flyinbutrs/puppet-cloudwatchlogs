@@ -94,7 +94,15 @@ class cloudwatchlogs (
         }
       }
 
-      service { 'awslogs':
+      case $::operatingsystemmajrelease {
+        '2': {
+          $aws_logs_service_name = 'awslogsd'
+        }
+        default: {
+          $aws_logs_service_name = 'awslogs'
+        }
+
+      service { "${aws_logs_service_name}":
         ensure     => 'running',
         enable     => true,
         hasrestart => true,
