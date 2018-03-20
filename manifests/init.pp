@@ -192,14 +192,6 @@ class cloudwatchlogs (
         target => '/etc/awslogs/config',
       }
 
-      file_line { 'ensure-correct-region':
-        ensure => present,
-        path   => '/var/awslogs/etc/aws.conf',
-        match  => '^region = ',
-        line   => "region = ${region}",
-        notify => Service[$aws_logs_service_name],
-      }
-
       if ($region == undef) {
         fail("region must be defined on ${::operatingsystem}")
       } else {
@@ -217,6 +209,15 @@ class cloudwatchlogs (
             File['/var/awslogs/etc/awslogs.conf'],
           ]
         }
+      }
+
+      file_line { 'ensure-correct-region':
+        ensure  => present,
+        path    => '/var/awslogs/etc/aws.conf',
+        match   => '^region = ',
+        line    => "region = ${region}",
+        require => Exec['cloudwatchlogs-install'],
+        notify  => Service[$aws_logs_service_name],
       }
 
       service { $aws_logs_service_name:
