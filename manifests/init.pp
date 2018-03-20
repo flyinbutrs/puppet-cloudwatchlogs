@@ -101,6 +101,7 @@ class cloudwatchlogs (
         default: {
           $aws_logs_service_name = 'awslogs'
         }
+      }
 
       service { "${aws_logs_service_name}":
         ensure     => 'running',
