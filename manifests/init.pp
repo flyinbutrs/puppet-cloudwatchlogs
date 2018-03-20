@@ -129,6 +129,26 @@ class cloudwatchlogs (
         require => Package['wget'],
       }
 
+      if $::operatingsystemmajrelease == '6' {
+        exec { 'cloudwatchlogs-dependencies-wget':
+          path    => '/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin',
+          command => 'wget -O /tmp/AgentDependencies.tar.gz https://s3.amazonaws.com/aws-cloudwatch/downloads/latest/AgentDependencies.tar.gz',
+          unless  => '[ -e /tmp/AgentDependencies.tar.gz ]',
+          require => Package['wget'],
+        }->
+
+        exec { 'tar -xzf /tmp/AgentDependencies.tar.gz':
+          cwd     => '/tmp',
+          creates => '/tmp/AgentDependencies',
+          path    => ['/bin', '/usr/bin', '/usr/sbin',],
+          before  => Exec['cloudwatchlogs-install'],
+        }
+
+        $install_flags = '--dependency-path /tmp/AgentDependencies'
+      } else {
+        $install_flags = ''
+      }
+
       file { '/etc/awslogs':
         ensure => 'directory',
         owner  => 'root',
@@ -185,7 +205,7 @@ class cloudwatchlogs (
       } else {
         exec { 'cloudwatchlogs-install':
           path    => '/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin',
-          command => "python /usr/local/src/awslogs-agent-setup.py -n -r ${region} -c /etc/awslogs/awslogs.conf",
+          command => "python /usr/local/src/awslogs-agent-setup.py -n -r ${region} -c /etc/awslogs/awslogs.conf ${install_flags}",
           onlyif  => '[ -e /usr/local/src/awslogs-agent-setup.py ]',
           unless  => '[ -d /var/awslogs/bin ]',
           require => [
