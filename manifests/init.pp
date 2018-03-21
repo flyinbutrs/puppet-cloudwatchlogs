@@ -56,17 +56,27 @@ class cloudwatchlogs (
 
   case $::operatingsystem {
     'Amazon': {
+
+      case $::operatingsystemmajrelease {
+        '2': {
+          $aws_logs_service_name = 'awslogsd'
+        }
+        default: {
+          $aws_logs_service_name = 'awslogs'
+        }
+      }
+
       package { 'awslogs':
         ensure => 'present',
       }
 
       file_line { 'ensure-correct-region':
         ensure  => present,
-        path    => '/var/awslogs/etc/aws.conf',
+        path    => '/etc/awslogs/awscli.conf',
         match   => '^region = ',
         line    => "region = ${region}",
         require => Package['awslogs'],
-        notify  => Service['awslogs'],
+        notify  => Service[$aws_logs_service_name],
       }
 
       concat { '/etc/awslogs/awslogs.conf':
@@ -89,12 +99,12 @@ class cloudwatchlogs (
           path    => '/etc/awslogs/awscli.conf',
           line    => "region = ${region}",
           match   => '^region\s*=',
-          notify  => Service['awslogs'],
+          notify  => Service[$aws_logs_service_name],
           require => Package['awslogs'],
         }
       }
 
-      service { 'awslogs':
+      service { $aws_logs_service_name:
         ensure     => 'running',
         enable     => true,
         hasrestart => true,
@@ -103,6 +113,9 @@ class cloudwatchlogs (
       }
     }
     /^(Ubuntu|CentOS|RedHat)$/: {
+
+      $aws_logs_service_name = 'awslogs'
+
       if ! defined(Package['wget']) {
         package { 'wget':
           ensure => 'present',
@@ -114,6 +127,26 @@ class cloudwatchlogs (
         command => 'wget -O /usr/local/src/awslogs-agent-setup.py https://s3.amazonaws.com/aws-cloudwatch/downloads/latest/awslogs-agent-setup.py',
         unless  => '[ -e /usr/local/src/awslogs-agent-setup.py ]',
         require => Package['wget'],
+      }
+
+      if $::operatingsystemmajrelease == '6' {
+        exec { 'cloudwatchlogs-dependencies-wget':
+          path    => '/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin',
+          command => 'wget -O /tmp/AgentDependencies.tar.gz https://s3.amazonaws.com/aws-cloudwatch/downloads/latest/AgentDependencies.tar.gz',
+          unless  => '[ -e /tmp/AgentDependencies.tar.gz ]',
+          require => Package['wget'],
+        }->
+
+        exec { 'tar -xzf /tmp/AgentDependencies.tar.gz':
+          cwd     => '/tmp',
+          creates => '/tmp/AgentDependencies',
+          path    => ['/bin', '/usr/bin', '/usr/sbin',],
+          before  => Exec['cloudwatchlogs-install'],
+        }
+
+        $install_flags = '--dependency-path /tmp/AgentDependencies'
+      } else {
+        $install_flags = ''
       }
 
       file { '/etc/awslogs':
@@ -164,7 +197,7 @@ class cloudwatchlogs (
       } else {
         exec { 'cloudwatchlogs-install':
           path    => '/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin',
-          command => "python /usr/local/src/awslogs-agent-setup.py -n -r ${region} -c /etc/awslogs/awslogs.conf",
+          command => "python /usr/local/src/awslogs-agent-setup.py -n -r ${region} -c /etc/awslogs/awslogs.conf ${install_flags}",
           onlyif  => '[ -e /usr/local/src/awslogs-agent-setup.py ]',
           unless  => '[ -d /var/awslogs/bin ]',
           require => [
@@ -172,13 +205,22 @@ class cloudwatchlogs (
             Exec['cloudwatchlogs-wget']
           ],
           before  => [
-            Service['awslogs'],
+            Service[$aws_logs_service_name],
             File['/var/awslogs/etc/awslogs.conf'],
           ]
         }
       }
 
-      service { 'awslogs':
+      file_line { 'ensure-correct-region':
+        ensure  => present,
+        path    => '/var/awslogs/etc/aws.conf',
+        match   => '^region = ',
+        line    => "region = ${region}",
+        require => Exec['cloudwatchlogs-install'],
+        notify  => Service[$aws_logs_service_name],
+      }
+
+      service { $aws_logs_service_name:
         ensure     => 'running',
         enable     => true,
         hasrestart => true,
@@ -197,7 +239,7 @@ class cloudwatchlogs (
         group   => 'root',
         mode    => '0644',
         content => template('cloudwatchlogs/awslogs_logging_config_file.erb'),
-        notify  => Service['awslogs'],
+        notify  => Service[$aws_logs_service_name],
         require => $installed_marker,
     }
   }
